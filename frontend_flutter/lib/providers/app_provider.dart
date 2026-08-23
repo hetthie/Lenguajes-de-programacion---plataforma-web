@@ -5,26 +5,30 @@ import '../data/mock.dart';
 
 class AppProvider extends ChangeNotifier {
   final List<Complaint> _complaints = List.from(mockComplaints);
-  final List<User> _users = List.from(mockUsers);
-  User? _currentUser = mockUsers[0]; // Usuario activo por defecto
+  List<User> _users = [];
+  User? _currentUser;
+  String? _token;
 
   List<Complaint> get complaints => _complaints;
   List<User> get users => _users;
   User? get currentUser => _currentUser;
+  String? get token => _token;
+  bool get isAuthenticated => _token != null;
 
-  void login(String email, String role) {
-    _currentUser = User(
-      id: 'USR-${DateTime.now().millisecondsSinceEpoch}',
-      name: email.split('@')[0],
-      email: email,
-      role: role,
-      status: 'Activo',
-    );
+  void setSession(User user, String token) {
+    _currentUser = user;
+    _token = token;
+    notifyListeners();
+  }
+
+  void setUsers(List<User> users) {
+    _users = users;
     notifyListeners();
   }
 
   void logout() {
     _currentUser = null;
+    _token = null;
     notifyListeners();
   }
 
