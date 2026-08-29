@@ -20,23 +20,7 @@ const Color kResueltoText = Color(0xFF1E9E5A);
 
 enum EstadoReclamo { pendiente, enProceso, resuelto }
 
-class Reclamo {
-  final String titulo;
-  final String fechaReporte;
-  final EstadoReclamo estado;
-  final String descripcion;
-  final IconData icono;
-  final bool tieneMapa; // si trae thumbnail de ubicación
-
-  const Reclamo({
-    required this.titulo,
-    required this.fechaReporte,
-    required this.estado,
-    required this.descripcion,
-    required this.icono,
-    this.tieneMapa = false,
-  });
-}
+enum FiltroEstado { todos, pendiente, enProceso, resuelto }
 
 final Map<String, IconData> reportIcons = {
   'Bache': Icons.construction,
@@ -49,12 +33,20 @@ final Map<String, IconData> reportIcons = {
   'Otro': Icons.more_horiz,
 };
 
-class ListPage extends StatelessWidget {
+class ListPage extends StatefulWidget {
   const ListPage({super.key});
+
+  @override
+  State<ListPage> createState() => _ListPageState();
+}
+
+class _ListPageState extends State<ListPage> {
+  FiltroEstado _filtroActual = FiltroEstado.todos;
 
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<AppProvider>();
+
     final complaints = provider.complaints;
 
     if (provider.isLoading && complaints.isEmpty) {
@@ -80,9 +72,7 @@ class ListPage extends StatelessWidget {
       );
     }
 
-    if (complaints.isEmpty) {
-      return _EmptyState();
-    }
+    final filtrados = _filtrarPorEstado(complaints, _filtroActual);
 
     return Scaffold(
       backgroundColor: kScreenBg,
@@ -101,7 +91,7 @@ class ListPage extends StatelessWidget {
                           const _LogoHeader(),
                           const SizedBox(height: 18),
                           const Text(
-                            'Mis Reclamos',
+                            'Todos los Reclamos',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w800,
@@ -109,116 +99,125 @@ class ListPage extends StatelessWidget {
                             ),
                           ),
                           const SizedBox(height: 16),
+                          _FiltrosRow(
+                            filtroActual: _filtroActual,
+                            onChanged: (nuevo) {
+                              setState(() => _filtroActual = nuevo);
+                            },
+                          ),
                         ],
                       ),
                     ),
                   ),
-                  SliverList(
-                    delegate: SliverChildBuilderDelegate((context, index) {
-                      final item = complaints[index];
-                      final date = formatDate(item.createdAt.toString());
+                  if (complaints.isEmpty)
+                    const SliverToBoxAdapter(child: _EmptyState())
+                  else if (filtrados.isEmpty)
+                    const SliverToBoxAdapter(child: _EmptyStateFiltro())
+                  else
+                    SliverList(
+                      delegate: SliverChildBuilderDelegate((context, index) {
+                        final item = filtrados[index];
+                        final date = formatDate(item.createdAt.toString());
 
-                      return Container(
-                        margin: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 6,
-                        ),
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: kCardBorder),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.03),
-                              blurRadius: 10,
-                              offset: const Offset(0, 3),
-                            ),
-                          ],
-                        ),
-                        child: ListTile(
-                          title: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Icon(
-                                reportIcons[item.category] ??
-                                    Icons.help_outline,
-                                color: kPrimaryDark,
-                                size: 22,
-                              ),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Text(
-                                  '${item.title} - ${item.direccionRef}',
-                                  style: const TextStyle(
-                                    fontSize: 15.5,
-                                    fontWeight: FontWeight.w700,
-                                    color: kDarkText,
-                                    height: 1.25,
-                                  ),
-                                ),
+                        return Container(
+                          margin: const EdgeInsets.symmetric(
+                            horizontal: 20,
+                            vertical: 6,
+                          ),
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(color: kCardBorder),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.03),
+                                blurRadius: 10,
+                                offset: const Offset(0, 3),
                               ),
                             ],
                           ),
-                          subtitle: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Padding(
-                                padding: EdgeInsets.only(left: 32),
-                                child: Text(
-                                  'Reportado: $date',
-                                  style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color: kGreyText,
-                                  ),
+                          child: ListTile(
+                            title: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  reportIcons[item.category] ??
+                                      Icons.help_outline,
+                                  color: kPrimaryDark,
+                                  size: 22,
                                 ),
-                              ),
-
-                              Row(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Icon(
-                                    Icons.location_on_outlined,
-                                    size: 22,
-                                    color: kGreyText,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: RichText(
-                                      text: TextSpan(
-                                        style: const TextStyle(
-                                          fontSize: 13,
-                                          color: kDarkText,
-                                          height: 1.35,
-                                        ),
-                                        children: [
-                                          const TextSpan(
-                                            text: 'Descripción: ',
-                                            style: TextStyle(
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                          ),
-                                          TextSpan(text: item.description),
-                                        ],
-                                      ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    '${item.title} - ${item.direccionRef}',
+                                    style: const TextStyle(
+                                      fontSize: 15.5,
+                                      fontWeight: FontWeight.w700,
+                                      color: kDarkText,
+                                      height: 1.25,
                                     ),
                                   ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          trailing: StatusBadge(status: item.status),
-                          onTap:
-                              () => Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (_) => DetailPage(complaint: item),
                                 ),
+                              ],
+                            ),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 32),
+                                  child: Text(
+                                    'Reportado: $date',
+                                    style: const TextStyle(
+                                      fontSize: 12.5,
+                                      color: kGreyText,
+                                    ),
+                                  ),
+                                ),
+                                Row(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Icon(
+                                      Icons.location_on_outlined,
+                                      size: 22,
+                                      color: kGreyText,
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Expanded(
+                                      child: RichText(
+                                        text: TextSpan(
+                                          style: const TextStyle(
+                                            fontSize: 13,
+                                            color: kDarkText,
+                                            height: 1.35,
+                                          ),
+                                          children: [
+                                            const TextSpan(
+                                              text: 'Descripción: ',
+                                              style: TextStyle(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                            ),
+                                            TextSpan(text: item.description),
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                            trailing: StatusBadge(status: item.status),
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DetailPage(complaint: item),
                               ),
-                        ),
-                      );
-                    }, childCount: complaints.length),
-                  ),
+                            ),
+                          ),
+                        );
+                      }, childCount: filtrados.length),
+                    ),
                 ],
               ),
             );
@@ -226,6 +225,19 @@ class ListPage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<dynamic> _filtrarPorEstado(List<dynamic> complaints, FiltroEstado f) {
+    if (f == FiltroEstado.todos) return complaints;
+    final estadoTexto = switch (f) {
+      FiltroEstado.pendiente => 'pendiente',
+      FiltroEstado.enProceso => 'en_proceso',
+      FiltroEstado.resuelto => 'resuelta',
+      FiltroEstado.todos => '',
+    };
+    return complaints
+        .where((c) => c.status.toString().toLowerCase().contains(estadoTexto))
+        .toList();
   }
 }
 
@@ -286,7 +298,6 @@ class _LogoPlaceholder extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Reemplaza este widget por: Image.asset('assets/logo.png', width: 44, height: 44)
     return SizedBox(
       width: 44,
       height: 44,
@@ -318,172 +329,49 @@ class _LogoPlaceholder extends StatelessWidget {
   }
 }
 
-class _ReclamoCard extends StatelessWidget {
-  final Reclamo reclamo;
-  const _ReclamoCard({required this.reclamo});
+class _FiltrosRow extends StatelessWidget {
+  final FiltroEstado filtroActual;
+  final ValueChanged<FiltroEstado> onChanged;
+
+  const _FiltrosRow({required this.filtroActual, required this.onChanged});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: kCardBorder),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.03),
-            blurRadius: 10,
-            offset: const Offset(0, 3),
-          ),
-        ],
+    final opciones = <FiltroEstado, String>{
+      FiltroEstado.todos: 'Todos',
+      FiltroEstado.pendiente: 'Pendiente',
+      FiltroEstado.enProceso: 'En Proceso',
+      FiltroEstado.resuelto: 'Resuelto',
+    };
+
+    return SizedBox(
+      height: 36,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: opciones.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final entry = opciones.entries.elementAt(index);
+          final seleccionado = entry.key == filtroActual;
+          return ChoiceChip(
+            label: Text(entry.value),
+            selected: seleccionado,
+            onSelected: (_) => onChanged(entry.key),
+            selectedColor: kPrimaryDark,
+            backgroundColor: Colors.white,
+            labelStyle: TextStyle(
+              color: seleccionado ? Colors.white : kDarkText,
+              fontWeight: FontWeight.w600,
+              fontSize: 12.5,
+            ),
+            side: BorderSide(color: seleccionado ? kPrimaryDark : kCardBorder),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 4),
+          );
+        },
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Ícono de categoría + título
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(reclamo.icono, color: kPrimaryDark, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  reclamo.titulo,
-                  style: const TextStyle(
-                    fontSize: 15.5,
-                    fontWeight: FontWeight.w700,
-                    color: kDarkText,
-                    height: 1.25,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
-
-          // Fecha + badge de estado
-          Row(
-            children: [
-              Text(
-                'Reportado: ${reclamo.fechaReporte}',
-                style: const TextStyle(fontSize: 12.5, color: kGreyText),
-              ),
-              const SizedBox(width: 8),
-              const Text(
-                '|',
-                style: TextStyle(color: kGreyText, fontSize: 12.5),
-              ),
-              const SizedBox(width: 8),
-              _EstadoBadge(estado: reclamo.estado),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // Descripción + (opcional) thumbnail de mapa
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Icon(
-                Icons.location_on_outlined,
-                size: 18,
-                color: kGreyText,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: RichText(
-                  text: TextSpan(
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: kDarkText,
-                      height: 1.35,
-                    ),
-                    children: [
-                      const TextSpan(
-                        text: 'Descripción: ',
-                        style: TextStyle(fontWeight: FontWeight.w700),
-                      ),
-                      TextSpan(text: reclamo.descripcion),
-                    ],
-                  ),
-                ),
-              ),
-              if (reclamo.tieneMapa) ...[
-                const SizedBox(width: 10),
-                const _MapThumbnailPlaceholder(),
-              ],
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EstadoBadge extends StatelessWidget {
-  final EstadoReclamo estado;
-  const _EstadoBadge({required this.estado});
-
-  @override
-  Widget build(BuildContext context) {
-    late final Color bg;
-    late final Color fg;
-    late final String label;
-
-    switch (estado) {
-      case EstadoReclamo.pendiente:
-        bg = kPendienteBg;
-        fg = kPendienteText;
-        label = 'Pendiente';
-        break;
-      case EstadoReclamo.enProceso:
-        bg = kEnProcesoBg;
-        fg = kEnProcesoText;
-        label = 'En Proceso';
-        break;
-      case EstadoReclamo.resuelto:
-        bg = kResueltoBg;
-        fg = kResueltoText;
-        label = 'Resuelto';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: fg,
-          fontSize: 11.5,
-          fontWeight: FontWeight.w700,
-        ),
-      ),
-    );
-  }
-}
-
-class _MapThumbnailPlaceholder extends StatelessWidget {
-  const _MapThumbnailPlaceholder();
-
-  @override
-  Widget build(BuildContext context) {
-    // Reemplaza este Container por una vista real de mapa, por ejemplo con
-    // google_maps_flutter, o por Image.network(staticMapUrl).
-    return Container(
-      width: 56,
-      height: 44,
-      decoration: BoxDecoration(
-        color: const Color(0xFFEFF2F7),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: kCardBorder),
-      ),
-      alignment: Alignment.center,
-      child: const Icon(Icons.map_outlined, size: 20, color: kGreyText),
     );
   }
 }
@@ -500,7 +388,29 @@ class _EmptyState extends StatelessWidget {
           const Icon(Icons.inbox_outlined, size: 44, color: kGreyText),
           const SizedBox(height: 12),
           const Text(
-            'Aún no tienes reclamos registrados.',
+            'Aún no hay reclamos registrados.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: kGreyText, fontSize: 14),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _EmptyStateFiltro extends StatelessWidget {
+  const _EmptyStateFiltro();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 48, horizontal: 24),
+      child: Column(
+        children: [
+          const Icon(Icons.filter_alt_off_outlined, size: 44, color: kGreyText),
+          const SizedBox(height: 12),
+          const Text(
+            'No hay reclamos para este filtro.',
             textAlign: TextAlign.center,
             style: TextStyle(color: kGreyText, fontSize: 14),
           ),

@@ -35,17 +35,29 @@ class DenunciaController extends Controller
 
     public function store(StoreDenunciaRequest $request)
     {
-        $denuncia = Denuncia::create([
-            'titulo' => $request->titulo,
-            'descripcion' => $request->descripcion,
-            'categoria_id' => $request->categoria_id,
-            'user_id' => $request->user()->id,
-            'latitud' => $request->latitud,
-            'longitud' => $request->longitud,
-            'direccion_referencial' => $request->direccion_referencial,
-            'foto_url' => $request->foto_url ?? null,
-            'estado' => 'pendiente',
-        ]);
+        $denuncia = DB::transaction(function () use ($request) {
+            $denuncia = Denuncia::create([
+                'titulo' => $request->titulo,
+                'descripcion' => $request->descripcion,
+                'categoria_id' => $request->categoria_id,
+                'user_id' => $request->user()->id,
+                'latitud' => $request->latitud,
+                'longitud' => $request->longitud,
+                'direccion_referencial' => $request->direccion_referencial,
+                'foto_url' => $request->foto_url ?? null,
+                'estado' => 'pendiente',
+            ]);
+
+            HistorialEstado::create([
+                'denuncia_id' => $denuncia->id,
+                'estado_anterior' => null,
+                'estado_nuevo' => 'pendiente',
+                'user_id' => $request->user()->id,
+                'comentario' => 'Denuncia registrada en el sistema.',
+            ]);
+
+            return $denuncia;
+        });
 
         return response()->json([
             'success' => true,
@@ -56,7 +68,11 @@ class DenunciaController extends Controller
 
     public function show($id)
     {
-        $denuncia = Denuncia::with(['categoria', 'user', 'historialEstados.user'])
+        $denuncia = Denuncia::with([
+            'categoria',
+            'user',
+            'historialEstados' => fn ($query) => $query->with('user')->orderByDesc('created_at'),
+        ])
             ->find($id);
 
         if (! $denuncia) {
@@ -82,6 +98,18 @@ class DenunciaController extends Controller
         return response()->json([
             'success' => true,
             'data' => $denuncias,
+        ]);
+    }
+
+    public function estadisticas()
+    {
+        return response()->json([
+            'success' => true,
+            'data' => [
+                'total' => Denuncia::count(),
+                'pendientes' => Denuncia::where('estado', 'pendiente')->count(),
+                'aprobadas' => Denuncia::where('estado', 'resuelta')->count(),
+            ],
         ]);
     }
 
@@ -123,7 +151,11 @@ class DenunciaController extends Controller
         return response()->json([
             'success' => true,
             'message' => 'Estado actualizado correctamente.',
-            'data' => $denuncia->fresh(['categoria', 'user']),
+            'data' => $denuncia->fresh([
+                'categoria',
+                'user',
+                'historialEstados' => fn ($query) => $query->with('user')->orderByDesc('created_at'),
+            ]),
         ]);
     }
 

@@ -18,6 +18,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/denuncias', [DenunciaController::class, 'index']);
     Route::post('/denuncias', [DenunciaController::class, 'store']);
     Route::get('/denuncias/mis-denuncias', [DenunciaController::class, 'misDenuncias']);
+    Route::get('/denuncias/estadisticas', [DenunciaController::class, 'estadisticas'])
+        ->middleware('rol:municipal');
     Route::get('/denuncias/{id}', [DenunciaController::class, 'show']);
     Route::patch('/denuncias/{id}/estado', [DenunciaController::class, 'cambiarEstado'])
         ->middleware('rol:municipal');
