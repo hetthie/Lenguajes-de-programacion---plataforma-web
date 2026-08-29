@@ -18,6 +18,9 @@ import 'pages/admin/reports.dart';
 import 'components/admin_layout.dart';
 import 'components/nav.dart';
 
+const Color kPrimaryDark = Color(0xFF1B2A56);
+const Color kGreyText = Color(0xFF8A93A3);
+
 void main() {
   runApp(
     ChangeNotifierProvider(create: (_) => AppProvider(), child: const MyApp()),
@@ -33,8 +36,9 @@ class MyApp extends StatelessWidget {
       title: 'Denuncias Ciudadanas',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
-        colorScheme: ColorScheme.fromSeed(seedColor: Colors.indigo),
-        useMaterial3: true,
+        fontFamily: 'Roboto',
+        scaffoldBackgroundColor: Colors.white,
+        useMaterial3: false,
       ),
       initialRoute: '/',
       routes: {
@@ -71,9 +75,11 @@ class _CitizenMainShellState extends State<CitizenMainShell> {
       appBar: const CitizenNav(),
       body: _pages[_currentIndex],
       bottomNavigationBar: BottomNavigationBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
         currentIndex: _currentIndex,
-        selectedItemColor: Colors.indigo,
-        unselectedItemColor: Colors.grey,
+        selectedItemColor: kPrimaryDark,
+        unselectedItemColor: kGreyText,
         onTap: (i) => setState(() => _currentIndex = i),
         items: const [
           BottomNavigationBarItem(icon: Icon(Icons.list), label: 'Explorar'),

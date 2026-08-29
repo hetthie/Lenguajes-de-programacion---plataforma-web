@@ -294,6 +294,7 @@ class AppProvider extends ChangeNotifier {
         address: old.address,
         latitude: old.latitude,
         longitude: old.longitude,
+        direccionRef: old.direccionRef,
         citizenName: old.citizenName,
         citizenEmail: old.citizenEmail,
         createdAt: old.createdAt,

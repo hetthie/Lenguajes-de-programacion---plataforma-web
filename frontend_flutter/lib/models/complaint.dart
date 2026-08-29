@@ -8,6 +8,7 @@ class Complaint {
   final String address;
   final double latitude;
   final double longitude;
+  final String direccionRef;
   final String citizenName;
   final String citizenEmail;
   final DateTime createdAt;
@@ -24,6 +25,7 @@ class Complaint {
     required this.address,
     required this.latitude,
     required this.longitude,
+    required this.direccionRef,
     required this.citizenName,
     required this.citizenEmail,
     required this.createdAt,
@@ -44,6 +46,7 @@ class Complaint {
       address: json['direccion'] ?? json['address'] ?? 'Sin dirección',
       latitude: double.tryParse(json['latitud']?.toString() ?? '0.0') ?? 0.0,
       longitude: double.tryParse(json['longitud']?.toString() ?? '0.0') ?? 0.0,
+      direccionRef: json['direccion_referencial'] ?? 'Guayaquil',
       citizenName: json['usuario']?['name'] ?? json['citizenName'] ?? 'Ciudadano',
       citizenEmail: json['usuario']?['email'] ?? json['citizenEmail'] ?? '',
       createdAt: json['created_at'] != null 
