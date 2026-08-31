@@ -165,7 +165,7 @@ class _MyComplaintsPageState extends State<MyComplaintsPage> {
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
-                                          '${item.title} - ${item.direccionRef}',
+                                          '${item.title} - ${item.address}',
                                           style: const TextStyle(
                                             fontSize: 15.5,
                                             fontWeight: FontWeight.w700,
