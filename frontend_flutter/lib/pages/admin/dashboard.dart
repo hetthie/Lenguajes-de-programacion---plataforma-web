@@ -57,30 +57,6 @@ class _DashboardPageState extends State<DashboardPage> {
       ),
     );
   }
-
-  Widget _card(String label, String value, Color color) {
-    return Expanded(
-      child: Card(
-        color: color.withValues(alpha: 0.1),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            children: [
-              Text(
-                value,
-                style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: color,
-                ),
-              ),
-              Text(label, style: const TextStyle(fontSize: 14)),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
 }
 
 class MetricsRow extends StatelessWidget {

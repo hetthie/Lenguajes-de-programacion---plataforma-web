@@ -22,13 +22,22 @@ class ComplaintStatusHistory {
     final uName = userObj != null ? (userObj['name'] ?? '') : '';
 
     return ComplaintStatusHistory(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
-      complaintId: json['denuncia_id'] is int ? json['denuncia_id'] : int.tryParse(json['denuncia_id']?.toString() ?? '0') ?? 0,
+      id:
+          json['id'] is int
+              ? json['id']
+              : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      complaintId:
+          json['denuncia_id'] is int
+              ? json['denuncia_id']
+              : int.tryParse(json['denuncia_id']?.toString() ?? '0') ?? 0,
       previousStatus: json['estado_anterior']?.toString() ?? '',
       status: json['estado_nuevo']?.toString() ?? 'pendiente',
       userName: uName.isNotEmpty ? uName : 'Sistema',
       comment: json['comentario']?.toString(),
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : DateTime.now(),
+      createdAt:
+          json['created_at'] != null
+              ? DateTime.parse(json['created_at'].toString())
+              : DateTime.now(),
     );
   }
 }
@@ -73,6 +82,9 @@ class Complaint {
     return validLatitude && validLongitude && !isMissingPoint;
   }
 
+  // Alias temporal para las pantallas que todavía usan el nombre anterior.
+  String get direccionRef => address;
+
   factory Complaint.fromJson(Map<String, dynamic> json) {
     final catObj = json['categoria'];
     final categoryName = catObj != null ? (catObj['nombre'] ?? '') : '';
@@ -84,22 +96,35 @@ class Complaint {
     final rawHist = json['historial_estados'] ?? json['historialEstados'];
     List<ComplaintStatusHistory> parsedHistory = [];
     if (rawHist is List) {
-      parsedHistory = rawHist.map((h) => ComplaintStatusHistory.fromJson(h)).toList();
+      parsedHistory =
+          rawHist.map((h) => ComplaintStatusHistory.fromJson(h)).toList();
     }
 
     return Complaint(
-      id: json['id'] is int ? json['id'] : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
+      id:
+          json['id'] is int
+              ? json['id']
+              : int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       title: json['titulo']?.toString() ?? '',
       description: json['descripcion']?.toString() ?? '',
       category: categoryName.isNotEmpty ? categoryName : 'Infraestructura',
       status: json['estado']?.toString() ?? 'pendiente',
       priority: json['prioridad']?.toString() ?? 'media',
-      latitude: json['latitud'] != null ? (double.tryParse(json['latitud'].toString()) ?? -2.1894) : -2.1894,
-      longitude: json['longitud'] != null ? (double.tryParse(json['longitud'].toString()) ?? -79.8891) : -79.8891,
+      latitude:
+          json['latitud'] != null
+              ? (double.tryParse(json['latitud'].toString()) ?? -2.1894)
+              : -2.1894,
+      longitude:
+          json['longitud'] != null
+              ? (double.tryParse(json['longitud'].toString()) ?? -79.8891)
+              : -79.8891,
       address: json['direccion_referencial']?.toString() ?? 'Guayaquil',
       citizenName: uName.isNotEmpty ? uName : 'Ciudadano',
       citizenEmail: uEmail.isNotEmpty ? uEmail : 'ciudadano@guayaquil.gob.ec',
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : DateTime.now(),
+      createdAt:
+          json['created_at'] != null
+              ? DateTime.parse(json['created_at'].toString())
+              : DateTime.now(),
       fotoUrl: json['foto_url']?.toString(),
       history: parsedHistory,
     );

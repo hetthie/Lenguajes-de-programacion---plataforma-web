@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+import '../../models/complaint.dart';
+import '../../models/municipal_report.dart';
 import '../../providers/app_provider.dart';
 
 // ignore: avoid_web_libraries_in_flutter
@@ -23,42 +26,57 @@ class _ReportsPageState extends State<ReportsPage> {
   void _exportarCSV(BuildContext context) {
     final denuncias = context.read<AppProvider>().complaints;
 
-    final filtradas = denuncias.where((d) {
-      if (_filtroEstado == 'todos') return true;
-      return d.status.toLowerCase().contains(_filtroEstado);
-    }).toList();
+    final filtradas =
+        denuncias.where((d) {
+          if (_filtroEstado == 'todos') return true;
+          return d.status.toLowerCase().contains(_filtroEstado);
+        }).toList();
 
     if (filtradas.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No hay denuncias para exportar con el filtro seleccionado.')),
+        const SnackBar(
+          content: Text(
+            'No hay denuncias para exportar con el filtro seleccionado.',
+          ),
+        ),
       );
       return;
     }
 
     final StringBuffer csvBuffer = StringBuffer();
-    csvBuffer.writeln('ID,Título,Categoría,Estado,Prioridad,Dirección,Ciudadano,Email,Fecha');
+    csvBuffer.writeln(
+      'ID,Título,Categoría,Estado,Prioridad,Dirección,Ciudadano,Email,Fecha',
+    );
 
     for (var d in filtradas) {
-      final fecha = '${d.createdAt.day}/${d.createdAt.month}/${d.createdAt.year}';
+      final fecha =
+          '${d.createdAt.day}/${d.createdAt.month}/${d.createdAt.year}';
       final titulo = '"${d.title.replaceAll('"', '""')}"';
       final direccion = '"${d.address.replaceAll('"', '""')}"';
       final ciudadano = '"${d.citizenName.replaceAll('"', '""')}"';
 
-      csvBuffer.writeln('${d.id},$titulo,${d.category},${d.status},${d.priority},$direccion,$ciudadano,${d.citizenEmail},$fecha');
+      csvBuffer.writeln(
+        '${d.id},$titulo,${d.category},${d.status},${d.priority},$direccion,$ciudadano,${d.citizenEmail},$fecha',
+      );
     }
 
     final bytes = utf8.encode(csvBuffer.toString());
     final blob = html.Blob([bytes], 'text/csv;charset=utf-8');
     final url = html.Url.createObjectUrlFromBlob(blob);
-    
+
     html.AnchorElement(href: url)
-      ..setAttribute('download', 'reporte_denuncias_guayaquil_${DateTime.now().millisecondsSinceEpoch}.csv')
+      ..setAttribute(
+        'download',
+        'reporte_denuncias_guayaquil_${DateTime.now().millisecondsSinceEpoch}.csv',
+      )
       ..click();
 
     html.Url.revokeObjectUrl(url);
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Reporte descargado exitosamente en formato CSV.')),
+      const SnackBar(
+        content: Text('Reporte descargado exitosamente en formato CSV.'),
+      ),
     );
   }
 
@@ -110,12 +128,27 @@ class _ReportsPageState extends State<ReportsPage> {
                             border: OutlineInputBorder(),
                           ),
                           items: const [
-                            DropdownMenuItem(value: 'todos', child: Text('Todas las denuncias')),
-                            DropdownMenuItem(value: 'pendiente', child: Text('Solo Pendientes')),
-                            DropdownMenuItem(value: 'proceso', child: Text('Solo En Proceso')),
-                            DropdownMenuItem(value: 'resuel', child: Text('Solo Resueltas')),
+                            DropdownMenuItem(
+                              value: 'todos',
+                              child: Text('Todas las denuncias'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'pendiente',
+                              child: Text('Solo Pendientes'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'proceso',
+                              child: Text('Solo En Proceso'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'resuel',
+                              child: Text('Solo Resueltas'),
+                            ),
                           ],
-                          onChanged: (val) => setState(() => _filtroEstado = val ?? 'todos'),
+                          onChanged:
+                              (val) => setState(
+                                () => _filtroEstado = val ?? 'todos',
+                              ),
                         ),
                         const SizedBox(height: 20),
 
@@ -124,10 +157,15 @@ class _ReportsPageState extends State<ReportsPage> {
                           child: ElevatedButton.icon(
                             style: ElevatedButton.styleFrom(
                               padding: const EdgeInsets.symmetric(vertical: 14),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             icon: const Icon(Icons.download),
-                            label: const Text('Descargar Reporte (CSV)', style: TextStyle(fontWeight: FontWeight.bold)),
+                            label: const Text(
+                              'Descargar Reporte (CSV)',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
                             onPressed: () => _exportarCSV(context),
                           ),
                         ),
@@ -149,12 +187,19 @@ class _ReportsPageState extends State<ReportsPage> {
                       children: [
                         const Text(
                           'Resumen de Registros Disponibles',
-                          style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: kTitleText),
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: kTitleText,
+                          ),
                         ),
                         const SizedBox(height: 8),
                         Text(
                           'Actualmente hay ${denuncias.length} denuncias registradas en la base de datos de Guayaquil listas para exportación.',
-                          style: const TextStyle(fontSize: 13, color: kGreyText),
+                          style: const TextStyle(
+                            fontSize: 13,
+                            color: kGreyText,
+                          ),
                         ),
                       ],
                     ),
@@ -252,12 +297,23 @@ class _ComplaintsPreview extends StatelessWidget {
                       visible.map((item) {
                         return DataRow(
                           cells: [
-                            DataCell(Text(item.id)),
-                            DataCell(Text(DateFormat('dd/MM/yyyy').format(item.createdAt))),
-                            DataCell(SizedBox(width: 220, child: Text(item.title))),
+                            DataCell(Text(item.id.toString())),
+                            DataCell(
+                              Text(
+                                DateFormat('dd/MM/yyyy').format(item.createdAt),
+                              ),
+                            ),
+                            DataCell(
+                              SizedBox(width: 220, child: Text(item.title)),
+                            ),
                             DataCell(Text(item.category)),
                             DataCell(Text(_statusLabel(item.status))),
-                            DataCell(SizedBox(width: 240, child: Text(item.direccionRef))),
+                            DataCell(
+                              SizedBox(
+                                width: 240,
+                                child: Text(item.direccionRef),
+                              ),
+                            ),
                           ],
                         );
                       }).toList(),

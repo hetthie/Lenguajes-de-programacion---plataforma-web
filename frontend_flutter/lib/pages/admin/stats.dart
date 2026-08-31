@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../models/municipal_report.dart';
 import '../../providers/app_provider.dart';
+import '../../services/report_service.dart';
 
 const Color kCardBorder = Color(0xFFE2E8F0);
 const Color kTitleText = Color(0xFF0F172A);
@@ -41,9 +43,9 @@ class _StatsPageState extends State<StatsPage> {
     });
 
     try {
-      final report = await ReportService(token).fetchReport(
-        const ReportFilters(),
-      );
+      final report = await ReportService(
+        token,
+      ).fetchReport(const ReportFilters());
       if (!mounted) return;
       setState(() => _report = report);
     } catch (error) {
@@ -60,11 +62,20 @@ class _StatsPageState extends State<StatsPage> {
     final denuncias = provider.complaints;
 
     final total = denuncias.length;
-    final resueltas = denuncias.where((d) => d.status.toLowerCase().contains('resuel') || d.status.toLowerCase().contains('atend')).length;
-    final enProceso = denuncias.where((d) => d.status.toLowerCase().contains('proc')).length;
+    final resueltas =
+        denuncias
+            .where(
+              (d) =>
+                  d.status.toLowerCase().contains('resuel') ||
+                  d.status.toLowerCase().contains('atend'),
+            )
+            .length;
+    final enProceso =
+        denuncias.where((d) => d.status.toLowerCase().contains('proc')).length;
     final pendientes = total - resueltas - enProceso;
 
-    final porcentajeResolucion = total > 0 ? ((resueltas / total) * 100).toStringAsFixed(1) : '0.0';
+    final porcentajeResolucion =
+        total > 0 ? ((resueltas / total) * 100).toStringAsFixed(1) : '0.0';
 
     final Map<String, int> categoriaCounts = {};
     for (var d in denuncias) {
@@ -125,7 +136,10 @@ class _StatsPageState extends State<StatsPage> {
                             Expanded(
                               child: Text(
                                 '$resueltas de $total denuncias atendidas exitosamente',
-                                style: const TextStyle(color: kGreyText, fontSize: 13),
+                                style: const TextStyle(
+                                  color: kGreyText,
+                                  fontSize: 13,
+                                ),
                               ),
                             ),
                           ],
@@ -137,7 +151,9 @@ class _StatsPageState extends State<StatsPage> {
                             value: total > 0 ? (resueltas / total) : 0,
                             minHeight: 10,
                             backgroundColor: const Color(0xFFE2E8F0),
-                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                            valueColor: const AlwaysStoppedAnimation<Color>(
+                              Color(0xFF10B981),
+                            ),
                           ),
                         ),
                       ],
@@ -147,24 +163,44 @@ class _StatsPageState extends State<StatsPage> {
                   const SizedBox(height: 24),
                   const Text(
                     'Distribución por Estado',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTitleText),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: kTitleText,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
                   Row(
                     children: [
-                      _StatBadgeCard(label: 'Pendientes', count: pendientes, color: const Color(0xFFD97706)),
+                      _StatBadgeCard(
+                        label: 'Pendientes',
+                        count: pendientes,
+                        color: const Color(0xFFD97706),
+                      ),
                       const SizedBox(width: 12),
-                      _StatBadgeCard(label: 'En Proceso', count: enProceso, color: const Color(0xFF0284C7)),
+                      _StatBadgeCard(
+                        label: 'En Proceso',
+                        count: enProceso,
+                        color: const Color(0xFF0284C7),
+                      ),
                       const SizedBox(width: 12),
-                      _StatBadgeCard(label: 'Resueltas', count: resueltas, color: const Color(0xFF16A34A)),
+                      _StatBadgeCard(
+                        label: 'Resueltas',
+                        count: resueltas,
+                        color: const Color(0xFF16A34A),
+                      ),
                     ],
                   ),
 
                   const SizedBox(height: 24),
                   const Text(
                     'Reportes por Categoría de Infraestructura',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTitleText),
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: kTitleText,
+                    ),
                   ),
                   const SizedBox(height: 12),
 
@@ -172,7 +208,9 @@ class _StatsPageState extends State<StatsPage> {
                     const Center(
                       child: Padding(
                         padding: EdgeInsets.all(24),
-                        child: Text('No hay suficientes datos para generar estadísticas.'),
+                        child: Text(
+                          'No hay suficientes datos para generar estadísticas.',
+                        ),
                       ),
                     )
                   else
@@ -184,40 +222,56 @@ class _StatsPageState extends State<StatsPage> {
                         border: Border.all(color: kCardBorder),
                       ),
                       child: Column(
-                        children: categoriaCounts.entries.map((entry) {
-                          final pct = total > 0 ? (entry.value / total) : 0.0;
-                          return Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children:
+                            categoriaCounts.entries.map((entry) {
+                              final pct =
+                                  total > 0 ? (entry.value / total) : 0.0;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      entry.key,
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: kTitleText),
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          entry.key,
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13,
+                                            color: kTitleText,
+                                          ),
+                                        ),
+                                        Text(
+                                          '${entry.value} (${(pct * 100).toStringAsFixed(0)}%)',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13,
+                                            color: kGreyText,
+                                          ),
+                                        ),
+                                      ],
                                     ),
-                                    Text(
-                                      '${entry.value} (${(pct * 100).toStringAsFixed(0)}%)',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kGreyText),
+                                    const SizedBox(height: 6),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(4),
+                                      child: LinearProgressIndicator(
+                                        value: pct,
+                                        minHeight: 8,
+                                        backgroundColor: const Color(
+                                          0xFFF1F5F9,
+                                        ),
+                                        valueColor:
+                                            const AlwaysStoppedAnimation<Color>(
+                                              kPrimaryBlue,
+                                            ),
+                                      ),
                                     ),
                                   ],
                                 ),
-                                const SizedBox(height: 6),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(4),
-                                  child: LinearProgressIndicator(
-                                    value: pct,
-                                    minHeight: 8,
-                                    backgroundColor: const Color(0xFFF1F5F9),
-                                    valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryBlue),
-                                  ),
-                                ),
-                              ],
-                            ),
-                          );
-                        }).toList(),
+                              );
+                            }).toList(),
                       ),
                     ),
                 ],
@@ -235,7 +289,11 @@ class _StatBadgeCard extends StatelessWidget {
   final int count;
   final Color color;
 
-  const _StatBadgeCard({required this.label, required this.count, required this.color});
+  const _StatBadgeCard({
+    required this.label,
+    required this.count,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -252,10 +310,21 @@ class _StatBadgeCard extends StatelessWidget {
           children: [
             Text(
               '$count',
-              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color),
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.w800,
+                color: color,
+              ),
             ),
             const SizedBox(height: 2),
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kGreyText)),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: kGreyText,
+              ),
+            ),
           ],
         ),
       ),

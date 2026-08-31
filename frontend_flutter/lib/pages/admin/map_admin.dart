@@ -65,10 +65,7 @@ class _MapAdminPageState extends State<MapAdminPage> {
             child:
                 provider.isLoadingMap && provider.mapComplaints.isEmpty
                     ? const Center(child: CircularProgressIndicator())
-                    : CityMap(
-                      complaints: visible,
-                      onMarkerTap: _openComplaint,
-                    ),
+                    : CityMap(complaints: visible, onMarkerTap: _openComplaint),
           ),
         ],
       ),
@@ -78,9 +75,7 @@ class _MapAdminPageState extends State<MapAdminPage> {
   Future<void> _openComplaint(Complaint complaint) async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => DetailAdminPage(complaint: complaint),
-      ),
+      MaterialPageRoute(builder: (_) => DetailAdminPage(denuncia: complaint)),
     );
 
     if (mounted) context.read<AppProvider>().fetchMapComplaints();
