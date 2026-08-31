@@ -23,7 +23,7 @@ class ProfilePage extends StatelessWidget {
     final String userInitial = user?.name[0] ?? 'U';
     final String userName = user?.name ?? 'Usuario';
     final String userEmail = user?.email ?? '';
-    final String userRole = user?.role ?? 'Ciudadano';
+    final String userRole = user?.roleLabel ?? 'Ciudadano';
     final String accountStatus = user?.status ?? 'Inactivo';
 
     return SafeArea(

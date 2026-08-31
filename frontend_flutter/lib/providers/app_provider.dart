@@ -9,6 +9,7 @@ import '../utils/status_utils.dart';
 
 class AppProvider extends ChangeNotifier {
   List<Complaint> _complaints = [];
+  List<Complaint> _mapComplaints = [];
   List<Complaint> _myComplaints = [];
   List<User> _users = [];
   List<Categoria> _categorias = [];
@@ -20,6 +21,9 @@ class AppProvider extends ChangeNotifier {
 
   bool _isLoadingMine = false;
   String? _errorMine;
+
+  bool _isLoadingMap = false;
+  String? _errorMap;
 
   bool _isLoadingCategorias = false;
   String? _errorCategorias;
@@ -34,6 +38,7 @@ class AppProvider extends ChangeNotifier {
   };
 
   List<Complaint> get complaints => _complaints;
+  List<Complaint> get mapComplaints => _mapComplaints;
   List<Complaint> get myComplaints => _myComplaints;
   List<User> get users => _users;
   List<Categoria> get categorias => _categorias;
@@ -44,6 +49,8 @@ class AppProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isLoadingMine => _isLoadingMine;
   String? get errorMine => _errorMine;
+  bool get isLoadingMap => _isLoadingMap;
+  String? get errorMap => _errorMap;
   bool get isLoadingCategorias => _isLoadingCategorias;
   String? get errorCategorias => _errorCategorias;
   bool get isSubmitting => _isSubmitting;
@@ -97,6 +104,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> fetchComplaints() async {
+    if (_token == null) return;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -157,6 +166,41 @@ class AppProvider extends ChangeNotifier {
       _errorMine = 'Error de conexión con el servidor: $e';
     } finally {
       _isLoadingMine = false;
+      notifyListeners();
+    }
+  }
+
+  /// Carga todas las denuncias georreferenciadas sin la paginacion de la lista.
+  Future<void> fetchMapComplaints() async {
+    if (_token == null) return;
+
+    _isLoadingMap = true;
+    _errorMap = null;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/denuncias/mapa'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final rawList = _extractList(data);
+        _mapComplaints =
+            rawList.map((item) => Complaint.fromJson(item)).toList();
+      } else if (response.statusCode == 401) {
+        _errorMap = 'Tu sesion expiro, vuelve a iniciar sesion.';
+      } else {
+        _errorMap = 'No se pudo cargar el mapa (${response.statusCode}).';
+      }
+    } catch (e) {
+      _errorMap = 'Error de conexion al cargar el mapa: $e';
+    } finally {
+      _isLoadingMap = false;
       notifyListeners();
     }
   }
@@ -259,6 +303,7 @@ class AppProvider extends ChangeNotifier {
     }
 
     fetchComplaints();
+    fetchMapComplaints();
     fetchMyComplaints();
   }
 
@@ -270,8 +315,16 @@ class AppProvider extends ChangeNotifier {
   Future<void> logout() async {
     _currentUser = null;
     _token = null;
+    _complaints = [];
     _myComplaints = [];
+    _mapComplaints = [];
+    _users = [];
     _categorias = [];
+    _complaintSummary = const {
+      'total': 0,
+      'pendientes': 0,
+      'aprobadas': 0,
+    };
     notifyListeners();
 
     final prefs = await SharedPreferences.getInstance();
@@ -281,6 +334,7 @@ class AppProvider extends ChangeNotifier {
 
   void addComplaint(Complaint complaint) {
     _complaints.insert(0, complaint);
+    _mapComplaints.insert(0, complaint);
     notifyListeners();
   }
 
@@ -327,9 +381,11 @@ class AppProvider extends ChangeNotifier {
         if (nuevaData is Map<String, dynamic>) {
           final nueva = Complaint.fromJson(nuevaData);
           _complaints.insert(0, nueva);
+          _mapComplaints.insert(0, nueva);
           _myComplaints.insert(0, nueva);
         } else {
           await fetchComplaints();
+          await fetchMapComplaints();
           await fetchMyComplaints();
         }
 
@@ -385,6 +441,7 @@ class AppProvider extends ChangeNotifier {
       }
 
       await fetchComplaints();
+      await fetchMapComplaints();
       await fetchMyComplaints();
       return null;
     } catch (e) {

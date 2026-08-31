@@ -50,7 +50,7 @@ class LandingPage extends StatelessWidget {
                                   Expanded(
                                     flex: 5,
                                     child: Image.asset(
-                                      'assets/images/city_hero.png',
+                                      'assets/images/city_hero.PNG',
                                       width: 900,
                                       fit: BoxFit.contain,
                                     ),
@@ -251,7 +251,7 @@ class _HeroImagePlaceholder extends StatelessWidget {
     return AspectRatio(
       aspectRatio: 600 / 500,
       child: Image.asset(
-        'assets/images/city_hero.png',
+        'assets/images/city_hero.PNG',
         width: 560,
         fit: BoxFit.contain,
       ),

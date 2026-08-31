@@ -168,3 +168,149 @@ class _ReportsPageState extends State<ReportsPage> {
     );
   }
 }
+
+class _CategoryBreakdown extends StatelessWidget {
+  final List<CategoryReportCount> items;
+
+  const _CategoryBreakdown({required this.items});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Distribución por categoría',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              const Text('No hay datos para los filtros seleccionados.')
+            else
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children:
+                    items
+                        .map(
+                          (item) => Chip(
+                            label: Text('${item.category}: ${item.total}'),
+                          ),
+                        )
+                        .toList(),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ComplaintsPreview extends StatelessWidget {
+  final List<Complaint> complaints;
+
+  const _ComplaintsPreview({required this.complaints});
+
+  @override
+  Widget build(BuildContext context) {
+    final visible = complaints.take(50).toList();
+
+    return Card(
+      elevation: 0,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Vista previa (${complaints.length} registros)',
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 12),
+            if (complaints.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 20),
+                child: Text('No existen denuncias para estos filtros.'),
+              )
+            else
+              SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: DataTable(
+                  columns: const [
+                    DataColumn(label: Text('ID')),
+                    DataColumn(label: Text('Fecha')),
+                    DataColumn(label: Text('Título')),
+                    DataColumn(label: Text('Categoría')),
+                    DataColumn(label: Text('Estado')),
+                    DataColumn(label: Text('Dirección')),
+                  ],
+                  rows:
+                      visible.map((item) {
+                        return DataRow(
+                          cells: [
+                            DataCell(Text(item.id)),
+                            DataCell(Text(DateFormat('dd/MM/yyyy').format(item.createdAt))),
+                            DataCell(SizedBox(width: 220, child: Text(item.title))),
+                            DataCell(Text(item.category)),
+                            DataCell(Text(_statusLabel(item.status))),
+                            DataCell(SizedBox(width: 240, child: Text(item.direccionRef))),
+                          ],
+                        );
+                      }).toList(),
+                ),
+              ),
+            if (complaints.length > 50)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Text(
+                  'La vista muestra 50 registros; el archivo exportado incluye todos.',
+                  style: TextStyle(color: Color(0xFF64748B), fontSize: 12),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorCard extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorCard({required this.message, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: const Color(0xFFFEF2F2),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            const Icon(Icons.error_outline, color: Color(0xFFB91C1C)),
+            const SizedBox(width: 10),
+            Expanded(child: Text(message)),
+            TextButton(onPressed: onRetry, child: const Text('Reintentar')),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+String _statusLabel(String status) {
+  switch (status) {
+    case 'en_proceso':
+      return 'En proceso';
+    case 'resuelta':
+      return 'Resuelta';
+    case 'pendiente':
+    default:
+      return 'Pendiente';
+  }
+}

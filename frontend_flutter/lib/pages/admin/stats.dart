@@ -7,8 +7,52 @@ const Color kTitleText = Color(0xFF0F172A);
 const Color kGreyText = Color(0xFF64748B);
 const Color kPrimaryBlue = Color(0xFF2563EB);
 
-class StatsPage extends StatelessWidget {
+class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
+
+  @override
+  State<StatsPage> createState() => _StatsPageState();
+}
+
+class _StatsPageState extends State<StatsPage> {
+  MunicipalReport? _report;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _load());
+  }
+
+  Future<void> _load() async {
+    final token = context.read<AppProvider>().token;
+    if (token == null) {
+      setState(() {
+        _isLoading = false;
+        _error = 'La sesión ha expirado.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isLoading = true;
+      _error = null;
+    });
+
+    try {
+      final report = await ReportService(token).fetchReport(
+        const ReportFilters(),
+      );
+      if (!mounted) return;
+      setState(() => _report = report);
+    } catch (error) {
+      if (!mounted) return;
+      setState(() => _error = error.toString().replaceFirst('Exception: ', ''));
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {

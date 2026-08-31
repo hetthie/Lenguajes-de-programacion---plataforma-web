@@ -161,7 +161,7 @@ class _UsuarioRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    bool isMunicipal = usuario.role == 'municipal';
+    final isMunicipal = usuario.isMunicipal;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
