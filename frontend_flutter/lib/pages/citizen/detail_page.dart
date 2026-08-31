@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
 import '../../models/complaint.dart';
 import '../../components/ui.dart';
 import '../../providers/app_provider.dart';
 
-const Color kScreenBg = Color(0xFFF8FAFC);
 const Color kCardBorder = Color(0xFFF1F5F9);
 const Color kDarkText = Color(0xFF1E293B);
 const Color kTitleText = Color(0xFF0F172A);
@@ -14,19 +15,9 @@ const Color kTimelineLine = Color(0xFFE2E8F0);
 const Color kTimelineDotBorder = Colors.white;
 const Color kBorderColor = Color(0xFFE1E5EC);
 
-// Colores de badges de estado
-const Color kPendienteBg = Color(0xFFFEF3C7);
 const Color kPendienteText = Color(0xFFD97706);
-const Color kEnProcesoBg = Color(0xFFDCEBFF);
 const Color kEnProcesoText = Color(0xFF1D6FE0);
-const Color kResueltoBg = Color(0xFFDFF7E6);
 const Color kResueltoText = Color(0xFF1E9E5A);
-
-// Colores de badge de prioridad
-const Color kPrioridadBg = Color(0xFFF1F5F9);
-const Color kPrioridadText = Color(0xFF475569);
-
-enum EstadoDenuncia { pendiente, enProceso, resuelto }
 
 class DetailPage extends StatefulWidget {
   final Complaint complaint;
@@ -64,26 +55,24 @@ class _DetailPageState extends State<DetailPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: _buildAppBar(context, complaint.id),
+      appBar: _buildAppBar(context, complaint.id.toString()),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24),
           child: Center(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _MainInfoCard(complaint: complaint),
-                const SizedBox(height: 20),
-                _HistorialCard(
-                  historial:
-                      complaint.history
-                          .whereType<ComplaintStatusHistory>()
-                          .toList(),
-                  isLoading: _loadingHistory,
-                ),
-                const SizedBox(height: 20),
-                //_HistorialCard(historial: historial),
-              ],
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _MainInfoCard(complaint: complaint),
+                  const SizedBox(height: 20),
+                  _HistorialCard(
+                    historial: complaint.history,
+                    isLoading: _loadingHistory,
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -103,7 +92,7 @@ class _DetailPageState extends State<DetailPage> {
       ),
       title: Text(
         'Denuncia #$idDenuncia',
-        style: TextStyle(
+        style: const TextStyle(
           color: kDarkText,
           fontSize: 17,
           fontWeight: FontWeight.w800,
@@ -118,12 +107,17 @@ class _DetailPageState extends State<DetailPage> {
 }
 
 class _MainInfoCard extends StatelessWidget {
-  const _MainInfoCard({super.key, required this.complaint});
+  const _MainInfoCard({required this.complaint});
 
   final Complaint complaint;
 
   @override
   Widget build(BuildContext context) {
+    final location = LatLng(
+      complaint.latitude != 0.0 ? complaint.latitude : -2.1894,
+      complaint.longitude != 0.0 ? complaint.longitude : -79.8891,
+    );
+
     return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -155,13 +149,95 @@ class _MainInfoCard extends StatelessWidget {
                 color: kGreyText,
               ),
               const SizedBox(width: 4),
-              Text(
-                complaint.address,
-                style: const TextStyle(fontSize: 13, color: kGreyText),
+              Expanded(
+                child: Text(
+                  complaint.address,
+                  style: const TextStyle(fontSize: 13, color: kGreyText),
+                ),
               ),
             ],
           ),
           const SizedBox(height: 16),
+
+          if (complaint.fotoUrl != null && complaint.fotoUrl!.isNotEmpty) ...[
+            const Text(
+              'FOTOGRAFÍA DE EVIDENCIA',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: Color(0xFF475569),
+                letterSpacing: 0.6,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Container(
+              height: 200,
+              width: double.infinity,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: kCardBorder),
+              ),
+              clipBehavior: Clip.antiAlias,
+              child: Image.network(
+                complaint.fotoUrl!,
+                fit: BoxFit.cover,
+                errorBuilder: (ctx, err, stack) => const Center(
+                  child: Icon(Icons.broken_image, size: 40, color: kGreyText),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
+          const Text(
+            'UBICACIÓN REGISTRADA',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFF475569),
+              letterSpacing: 0.6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            height: 180,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: kCardBorder),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: FlutterMap(
+              options: MapOptions(
+                initialCenter: location,
+                initialZoom: 15.0,
+                interactionOptions: const InteractionOptions(
+                  flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                ),
+              ),
+              children: [
+                TileLayer(
+                  urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                  userAgentPackageName: 'com.example.frontend_flutter',
+                ),
+                MarkerLayer(
+                  markers: [
+                    Marker(
+                      point: location,
+                      width: 40,
+                      height: 40,
+                      child: const Icon(
+                        Icons.location_on,
+                        size: 40,
+                        color: Colors.red,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
           const Divider(color: kCardBorder, thickness: 1, height: 1),
           const SizedBox(height: 16),
 
@@ -286,7 +362,6 @@ class _TimelineItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Columna con la línea vertical + punto
           SizedBox(
             width: 20,
             child: Column(
@@ -313,8 +388,6 @@ class _TimelineItem extends StatelessWidget {
             ),
           ),
           const SizedBox(width: 10),
-
-          // Texto del evento
           Expanded(
             child: Padding(
               padding: EdgeInsets.only(bottom: isLast ? 0 : 16),
@@ -362,79 +435,13 @@ class _Card extends StatelessWidget {
         border: Border.all(color: kCardBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 16,
             offset: const Offset(0, 4),
           ),
         ],
       ),
       child: child,
-    );
-  }
-}
-
-class _EstadoBadge extends StatelessWidget {
-  final EstadoDenuncia estado;
-  const _EstadoBadge({required this.estado});
-
-  @override
-  Widget build(BuildContext context) {
-    late final Color bg;
-    late final Color fg;
-    late final String label;
-
-    switch (estado) {
-      case EstadoDenuncia.pendiente:
-        bg = kPendienteBg;
-        fg = kPendienteText;
-        label = 'Pendiente';
-        break;
-      case EstadoDenuncia.enProceso:
-        bg = kEnProcesoBg;
-        fg = kEnProcesoText;
-        label = 'En Proceso';
-        break;
-      case EstadoDenuncia.resuelto:
-        bg = kResueltoBg;
-        fg = kResueltoText;
-        label = 'Resuelto';
-        break;
-    }
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: bg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(color: fg, fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-}
-
-class _PrioridadBadge extends StatelessWidget {
-  final String prioridad;
-  const _PrioridadBadge({required this.prioridad});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-      decoration: BoxDecoration(
-        color: kPrioridadBg,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        'Prioridad: $prioridad',
-        style: const TextStyle(
-          color: kPrioridadText,
-          fontSize: 12,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
     );
   }
 }

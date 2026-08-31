@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../models/municipal_report.dart';
 import '../../providers/app_provider.dart';
-import '../../services/report_service.dart';
+
+const Color kCardBorder = Color(0xFFE2E8F0);
+const Color kTitleText = Color(0xFF0F172A);
+const Color kGreyText = Color(0xFF64748B);
+const Color kPrimaryBlue = Color(0xFF2563EB);
 
 class StatsPage extends StatefulWidget {
   const StatsPage({super.key});
@@ -53,89 +56,173 @@ class _StatsPageState extends State<StatsPage> {
 
   @override
   Widget build(BuildContext context) {
+    final provider = context.watch<AppProvider>();
+    final denuncias = provider.complaints;
+
+    final total = denuncias.length;
+    final resueltas = denuncias.where((d) => d.status.toLowerCase().contains('resuel') || d.status.toLowerCase().contains('atend')).length;
+    final enProceso = denuncias.where((d) => d.status.toLowerCase().contains('proc')).length;
+    final pendientes = total - resueltas - enProceso;
+
+    final porcentajeResolucion = total > 0 ? ((resueltas / total) * 100).toStringAsFixed(1) : '0.0';
+
+    final Map<String, int> categoriaCounts = {};
+    for (var d in denuncias) {
+      final cat = d.category.isEmpty ? 'General' : d.category;
+      categoriaCounts[cat] = (categoriaCounts[cat] ?? 0) + 1;
+    }
+
     return Scaffold(
-      backgroundColor: const Color(0xFFF8FAFC),
-      appBar: AppBar(
-        title: const Text('Estadísticas y analítica'),
-        actions: [
-          IconButton(onPressed: _isLoading ? null : _load, icon: const Icon(Icons.refresh)),
-        ],
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _error != null
-              ? _ErrorState(message: _error!, onRetry: _load)
-              : _StatsContent(report: _report!),
-    );
-  }
-}
-
-class _StatsContent extends StatelessWidget {
-  final MunicipalReport report;
-
-  const _StatsContent({required this.report});
-
-  @override
-  Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(20),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 900),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
+      appBar: AppBar(title: const Text('Estadísticas y Analítica')),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(20),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 650),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _StatusCard(label: 'Total', value: report.total, color: const Color(0xFF2563EB)),
-                  _StatusCard(
-                    label: 'Pendientes',
-                    value: report.pending,
-                    color: const Color(0xFFF59E0B),
-                  ),
-                  _StatusCard(
-                    label: 'En proceso',
-                    value: report.inProgress,
-                    color: const Color(0xFF0EA5E9),
-                  ),
-                  _StatusCard(
-                    label: 'Resueltas',
-                    value: report.resolved,
-                    color: const Color(0xFF16A34A),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              Card(
-                elevation: 0,
-                child: Padding(
-                  padding: const EdgeInsets.all(18),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Denuncias por categoría',
-                        style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-                      ),
-                      const SizedBox(height: 16),
-                      if (report.byCategory.isEmpty)
-                        const Text('No existen datos para analizar.')
-                      else
-                        ...report.byCategory.map(
-                          (item) => _CategoryBar(
-                            label: item.category,
-                            value: item.total,
-                            total: report.total,
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(color: kCardBorder),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.03),
+                          blurRadius: 10,
+                          offset: const Offset(0, 3),
+                        ),
+                      ],
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text(
+                          'TASA DE RESOLUCIÓN MUNICIPAL',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: kGreyText,
+                            letterSpacing: 0.5,
                           ),
                         ),
+                        const SizedBox(height: 8),
+                        Row(
+                          children: [
+                            Text(
+                              '$porcentajeResolucion%',
+                              style: const TextStyle(
+                                fontSize: 36,
+                                fontWeight: FontWeight.w800,
+                                color: kPrimaryBlue,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                '$resueltas de $total denuncias atendidas exitosamente',
+                                style: const TextStyle(color: kGreyText, fontSize: 13),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: LinearProgressIndicator(
+                            value: total > 0 ? (resueltas / total) : 0,
+                            minHeight: 10,
+                            backgroundColor: const Color(0xFFE2E8F0),
+                            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF10B981)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Distribución por Estado',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTitleText),
+                  ),
+                  const SizedBox(height: 12),
+
+                  Row(
+                    children: [
+                      _StatBadgeCard(label: 'Pendientes', count: pendientes, color: const Color(0xFFD97706)),
+                      const SizedBox(width: 12),
+                      _StatBadgeCard(label: 'En Proceso', count: enProceso, color: const Color(0xFF0284C7)),
+                      const SizedBox(width: 12),
+                      _StatBadgeCard(label: 'Resueltas', count: resueltas, color: const Color(0xFF16A34A)),
                     ],
                   ),
-                ),
+
+                  const SizedBox(height: 24),
+                  const Text(
+                    'Reportes por Categoría de Infraestructura',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: kTitleText),
+                  ),
+                  const SizedBox(height: 12),
+
+                  if (categoriaCounts.isEmpty)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(24),
+                        child: Text('No hay suficientes datos para generar estadísticas.'),
+                      ),
+                    )
+                  else
+                    Container(
+                      padding: const EdgeInsets.all(20),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: kCardBorder),
+                      ),
+                      child: Column(
+                        children: categoriaCounts.entries.map((entry) {
+                          final pct = total > 0 ? (entry.value / total) : 0.0;
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 14),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      entry.key,
+                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: kTitleText),
+                                    ),
+                                    Text(
+                                      '${entry.value} (${(pct * 100).toStringAsFixed(0)}%)',
+                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13, color: kGreyText),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: pct,
+                                    minHeight: 8,
+                                    backgroundColor: const Color(0xFFF1F5F9),
+                                    valueColor: const AlwaysStoppedAnimation<Color>(kPrimaryBlue),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                ],
               ),
-            ],
+            ),
           ),
         ),
       ),
@@ -143,86 +230,34 @@ class _StatsContent extends StatelessWidget {
   }
 }
 
-class _StatusCard extends StatelessWidget {
+class _StatBadgeCard extends StatelessWidget {
   final String label;
-  final int value;
+  final int count;
   final Color color;
 
-  const _StatusCard({required this.label, required this.value, required this.color});
+  const _StatBadgeCard({required this.label, required this.count, required this.color});
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 200,
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE2E8F0)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label, style: const TextStyle(color: Color(0xFF64748B))),
-          const SizedBox(height: 6),
-          Text('$value', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800, color: color)),
-        ],
-      ),
-    );
-  }
-}
-
-class _CategoryBar extends StatelessWidget {
-  final String label;
-  final int value;
-  final int total;
-
-  const _CategoryBar({required this.label, required this.value, required this.total});
-
-  @override
-  Widget build(BuildContext context) {
-    final ratio = total == 0 ? 0.0 : value / total;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 14),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Expanded(child: Text(label)),
-              Text('$value', style: const TextStyle(fontWeight: FontWeight.w700)),
-            ],
-          ),
-          const SizedBox(height: 6),
-          LinearProgressIndicator(
-            value: ratio,
-            minHeight: 9,
-            borderRadius: BorderRadius.circular(8),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ErrorState extends StatelessWidget {
-  final String message;
-  final VoidCallback onRetry;
-
-  const _ErrorState({required this.message, required this.onRetry});
-
-  @override
-  Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Icon(Icons.error_outline, size: 44, color: Colors.redAccent),
-          const SizedBox(height: 10),
-          Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 10),
-          ElevatedButton(onPressed: onRetry, child: const Text('Reintentar')),
-        ],
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '$count',
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: color),
+            ),
+            const SizedBox(height: 2),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: kGreyText)),
+          ],
+        ),
       ),
     );
   }

@@ -66,7 +66,7 @@ class _RegisterPageState extends State<RegisterPage> {
       final token = result['token'] as String;
 
       if (!mounted) return;
-      context.read<AppProvider>().setSession(user, token);
+      context.read<AppProvider>().setSession(user, token, rawUserJson: result['user'] as Map<String, dynamic>);
       Navigator.pushReplacementNamed(context, '/citizen');
     } catch (error) {
       if (!mounted) return;

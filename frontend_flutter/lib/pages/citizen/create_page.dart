@@ -1,19 +1,16 @@
+import 'package:file_picker/file_picker.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:frontend_flutter/models/categoria.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
-import '../../components/location_picker.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../providers/app_provider.dart';
 
-const Color kScreenBg = Color(0xFFF8FAFC);
-const Color kCardBorder = Color(0xFFF1F5F9);
-const Color kDarkText = Color(0xFF1E293B);
+const Color kCardBorder = Color(0xFFE2E8F0);
+const Color kTitleText = Color(0xFF0F172A);
 const Color kGreyText = Color(0xFF64748B);
-const Color kLabelColor = Color(0xFF475569);
-const Color kInputBorder = Color(0xFFCBD5E1);
-const Color kInputBg = Color(0xFFFAFAFA);
 const Color kPrimaryBlue = Color(0xFF2563EB);
-const Color kBorderColor = Color(0xFFE1E5EC);
 
 class CreatePage extends StatefulWidget {
   const CreatePage({super.key});
@@ -27,16 +24,24 @@ class _CreatePageState extends State<CreatePage> {
   final _titleController = TextEditingController();
   final _descController = TextEditingController();
   final _addressController = TextEditingController();
-  int? _categoriaId;
-  LatLng? _selectedLocation;
 
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<AppProvider>().fetchCategorias();
-    });
-  }
+  int? _selectedCategory = 1;
+  LatLng _selectedLocation = const LatLng(-2.1894, -79.8891);
+  
+  bool _isLoading = false;
+  bool _isUploadingImage = false;
+  
+  Uint8List? _imageBytes;
+  String? _imageFileName;
+  String? _uploadedImageUrl;
+
+  final List<Map<String, dynamic>> _categories = [
+    {'id': 1, 'nombre': 'Baches y Vías'},
+    {'id': 2, 'nombre': 'Alumbrado Público'},
+    {'id': 3, 'nombre': 'Acumulación de Basura'},
+    {'id': 4, 'nombre': 'Agua Potable y Alcantarillado'},
+    {'id': 5, 'nombre': 'Parques y Áreas Verdes'},
+  ];
 
   @override
   void dispose() {
@@ -46,409 +51,276 @@ class _CreatePageState extends State<CreatePage> {
     super.dispose();
   }
 
-  Future<void> _submit() async {
+  Future<void> _pickAndUploadImage() async {
+    final file = await FilePicker.pickFile(
+      type: FileType.image,
+    );
+
+    if (file == null) return;
+
+    final bytes = await file.readAsBytes();
+
+    setState(() {
+      _imageBytes = bytes;
+      _imageFileName = file.name;
+      _isUploadingImage = true;
+    });
+
+    try {
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}_${file.name.replaceAll(' ', '_')}';
+      final supabase = Supabase.instance.client;
+
+      await supabase.storage.from('denuncias-fotos').uploadBinary(
+            fileName,
+            bytes,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: true),
+          );
+
+      final publicUrl = supabase.storage.from('denuncias-fotos').getPublicUrl(fileName);
+
+      setState(() {
+        _uploadedImageUrl = publicUrl;
+        _isUploadingImage = false;
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Fotografía subida a Supabase Storage.')),
+        );
+      }
+    } catch (e) {
+      setState(() => _isUploadingImage = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error al subir imagen: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_categoriaId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Selecciona una categoría.')),
-      );
-      return;
-    }
-    if (_selectedLocation == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Selecciona la ubicación exacta en el mapa.'),
-        ),
-      );
-      return;
-    }
 
-    final provider = context.read<AppProvider>();
+    setState(() => _isLoading = true);
 
-    final error = await provider.createComplaint(
+    final error = await context.read<AppProvider>().createComplaint(
       titulo: _titleController.text.trim(),
       descripcion: _descController.text.trim(),
-      categoriaId: _categoriaId!,
+      categoriaId: _selectedCategory ?? 1,
+      latitud: _selectedLocation.latitude,
+      longitud: _selectedLocation.longitude,
       direccionReferencial: _addressController.text.trim(),
-      latitud: _selectedLocation!.latitude,
-      longitud: _selectedLocation!.longitude,
+      fotoUrl: _uploadedImageUrl,
     );
 
     if (!mounted) return;
 
-    if (error == null) {
+    setState(() => _isLoading = false);
+
+    if (error != null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Denuncia publicada correctamente.')),
+        SnackBar(content: Text(error)),
       );
-      Navigator.pop(context);
     } else {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(error)));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('¡Denuncia creada exitosamente!')),
+      );
+      _titleController.clear();
+      _descController.clear();
+      _addressController.clear();
+      setState(() {
+        _imageBytes = null;
+        _imageFileName = null;
+        _uploadedImageUrl = null;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final provider = context.watch<AppProvider>();
-
     return Scaffold(
-      appBar: _buildAppBar(context),
+      appBar: AppBar(title: const Text('Nueva Denuncia')),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth =
-                constraints.maxWidth > 520 ? 520.0 : double.infinity;
-
-            return SingleChildScrollView(
-              padding: const EdgeInsets.all(24),
-              child: Center(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(maxWidth: maxWidth),
-                  child: Form(
-                    key: _formKey,
-                    child: _FormCard(
-                      tituloController: _titleController,
-                      ubicacionController: _addressController,
-                      descripcionController: _descController,
-                      categoriaId: _categoriaId,
-                      selectedLocation: _selectedLocation,
-                      onLocationSelected:
-                          (location) =>
-                              setState(() => _selectedLocation = location),
-                      onCategoriaChanged:
-                          (val) => setState(() => _categoriaId = val),
-                      categorias: provider.categorias,
-                      isLoadingCategorias: provider.isLoadingCategorias,
-                      onSubmit: _submit,
-                      isSubmitting: provider.isSubmitting,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(24),
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: Container(
+                padding: const EdgeInsets.all(24),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: kCardBorder),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.03),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
                     ),
-                  ),
+                  ],
                 ),
-              ),
-            );
-          },
-        ),
-      ),
-    );
-  }
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Registrar Denuncia Ciudadana',
+                        style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: kTitleText),
+                      ),
+                      const SizedBox(height: 16),
 
-  PreferredSizeWidget _buildAppBar(BuildContext context) {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      scrolledUnderElevation: 0,
-      centerTitle: true,
-      leading: IconButton(
-        icon: const Icon(Icons.arrow_back_ios_new, color: kDarkText, size: 18),
-        onPressed: () => Navigator.maybePop(context),
-      ),
-      title: const Text(
-        'Nueva Denuncia',
-        style: TextStyle(
-          color: kDarkText,
-          fontSize: 17,
-          fontWeight: FontWeight.w800,
-        ),
-      ),
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(1),
-        child: Container(color: kBorderColor, height: 1),
-      ),
-    );
-  }
-}
+                      TextFormField(
+                        controller: _titleController,
+                        decoration: const InputDecoration(
+                          labelText: 'Título de la denuncia',
+                          hintText: 'Ej. Fuga de agua en Av. 9 de Octubre',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Ingresa un título' : null,
+                      ),
+                      const SizedBox(height: 16),
 
-class _FormCard extends StatelessWidget {
-  final TextEditingController tituloController;
-  final TextEditingController ubicacionController;
-  final TextEditingController descripcionController;
-  final int? categoriaId;
-  final LatLng? selectedLocation;
-  final ValueChanged<LatLng> onLocationSelected;
-  final Function(int?) onCategoriaChanged;
-  final List<Categoria> categorias;
-  final bool isLoadingCategorias;
-  final Future<void> Function() onSubmit;
-  final bool isSubmitting;
+                      DropdownButtonFormField<int>(
+                        initialValue: _selectedCategory,
+                        decoration: const InputDecoration(
+                          labelText: 'Categoría de la incidencia',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: _categories.map((cat) {
+                          return DropdownMenuItem<int>(
+                            value: cat['id'] as int,
+                            child: Text(cat['nombre'].toString()),
+                          );
+                        }).toList(),
+                        onChanged: (val) => setState(() => _selectedCategory = val),
+                      ),
+                      const SizedBox(height: 16),
 
-  const _FormCard({
-    required this.tituloController,
-    required this.ubicacionController,
-    required this.descripcionController,
-    required this.categoriaId,
-    required this.selectedLocation,
-    required this.onLocationSelected,
-    required this.onCategoriaChanged,
-    required this.categorias,
-    required this.isLoadingCategorias,
-    required this.onSubmit,
-    required this.isSubmitting,
-  });
+                      TextFormField(
+                        controller: _descController,
+                        maxLines: 3,
+                        decoration: const InputDecoration(
+                          labelText: 'Descripción detallada',
+                          hintText: 'Explica lo que sucede con precisión...',
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (val) => val == null || val.trim().isEmpty ? 'Ingresa la descripción' : null,
+                      ),
+                      const SizedBox(height: 16),
 
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(50),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Título
-          _LabeledField(
-            label: 'Título',
-            controller: tituloController,
-            hintText: 'Ej. Bache en la Av. Principal',
-            validatorText: 'Ingresa un título',
-          ),
-          const SizedBox(height: 20),
-
-          // Categoría (dropdown)
-          const Text(
-            'Categoría',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: kLabelColor,
-            ),
-          ),
-          const SizedBox(height: 6),
-          _CategoriaDropdown(
-            value: categoriaId,
-            onChanged: onCategoriaChanged,
-            categorias: categorias,
-            isLoading: isLoadingCategorias,
-          ),
-          const SizedBox(height: 20),
-
-          // Ubicación / Dirección referencial
-          _LabeledField(
-            label: 'Ubicación / Dirección referencial',
-            controller: ubicacionController,
-            hintText: 'Ej. Frente a la parada de buses del sector norte',
-            validatorText: 'Ingresa una dirección',
-          ),
-          const SizedBox(height: 20),
-
-          LocationPicker(
-            selectedLocation: selectedLocation,
-            onLocationSelected: onLocationSelected,
-          ),
-          const SizedBox(height: 20),
-
-          // Descripción detallada (multilínea)
-          const Text(
-            'Descripción detallada',
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: kLabelColor,
-            ),
-          ),
-          const SizedBox(height: 6),
-          TextFormField(
-            controller: descripcionController,
-            maxLines: 4,
-            style: const TextStyle(fontSize: 14, color: kDarkText),
-            decoration: InputDecoration(
-              hintText: 'Explica detalladamente la situación acontecida...',
-              hintStyle: const TextStyle(
-                color: Color(0xFF94A3B8),
-                fontSize: 14,
-              ),
-              filled: true,
-              fillColor: kInputBg,
-              contentPadding: const EdgeInsets.symmetric(
-                vertical: 12,
-                horizontal: 14,
-              ),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: kInputBorder),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: kInputBorder),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-                borderSide: const BorderSide(color: kPrimaryBlue, width: 1.4),
-              ),
-            ),
-            validator:
-                (value) =>
-                    (value == null || value.trim().isEmpty)
-                        ? 'Ingresa una descripción'
-                        : null,
-          ),
-          const SizedBox(height: 24),
-
-          // Botón de acción principal
-          SizedBox(
-            height: 50,
-            child: ElevatedButton(
-              onPressed: isSubmitting ? null : onSubmit,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: kPrimaryBlue,
-                foregroundColor: Colors.white,
-                elevation: 6,
-                shadowColor: kPrimaryBlue.withOpacity(0.35),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
-              ),
-              child:
-                  isSubmitting
-                      ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                      : const Text(
-                        'Publicar Denuncia',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
+                      TextFormField(
+                        controller: _addressController,
+                        decoration: const InputDecoration(
+                          labelText: 'Dirección referencial',
+                          hintText: 'Ej. Junto a la farmacia principal',
+                          border: OutlineInputBorder(),
                         ),
                       ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+                      const SizedBox(height: 20),
 
-class _LabeledField extends StatelessWidget {
-  final String label;
-  final TextEditingController controller;
-  final String hintText;
-  final String validatorText;
+                      const Text(
+                        'EVIDENCIA FOTOGRÁFICA',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kGreyText, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 8),
 
-  const _LabeledField({
-    required this.label,
-    required this.controller,
-    required this.hintText,
-    required this.validatorText,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-            color: kLabelColor,
-          ),
-        ),
-        const SizedBox(height: 6),
-        TextFormField(
-          controller: controller,
-          style: const TextStyle(fontSize: 14, color: kDarkText),
-          decoration: InputDecoration(
-            hintText: hintText,
-            hintStyle: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-            filled: true,
-            fillColor: kInputBg,
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 12,
-              horizontal: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kInputBorder),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kInputBorder),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: kPrimaryBlue, width: 1.4),
-            ),
-          ),
-          validator:
-              (value) =>
-                  (value == null || value.trim().isEmpty)
-                      ? validatorText
-                      : null,
-        ),
-      ],
-    );
-  }
-}
-
-class _CategoriaDropdown extends StatelessWidget {
-  final int? value;
-  final ValueChanged<int?> onChanged;
-  final List<Categoria> categorias;
-  final bool isLoading;
-
-  const _CategoriaDropdown({
-    required this.value,
-    required this.onChanged,
-    required this.categorias,
-    required this.isLoading,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14),
-      decoration: BoxDecoration(
-        color: kInputBg,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: kInputBorder),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButtonFormField<int>(
-          value: value,
-          isExpanded: true,
-          icon:
-              isLoading
-                  ? const SizedBox(
-                    width: 18,
-                    height: 18,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: kPrimaryBlue,
-                    ),
-                  )
-                  : const Icon(
-                    Icons.keyboard_arrow_down,
-                    color: kGreyText,
-                    size: 20,
-                  ),
-          hint: Text(
-            isLoading ? 'Cargando categorías...' : 'Selecciona una categoría',
-            style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 14),
-          ),
-          style: const TextStyle(fontSize: 14, color: kDarkText),
-          items:
-              isLoading
-                  ? []
-                  : categorias
-                      .map(
-                        (cat) => DropdownMenuItem<int>(
-                          value: cat.id,
-                          child: Text(cat.nombre),
+                      OutlinedButton.icon(
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 16),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                         ),
-                      )
-                      .toList(),
-          onChanged: isLoading ? null : onChanged,
-          validator: (value) {
-            return value == null ? 'Selecciona una categoría' : null;
-          },
-          decoration: const InputDecoration(
-            border: InputBorder.none,
-            enabledBorder: InputBorder.none,
-            focusedBorder: InputBorder.none,
-            errorBorder: InputBorder.none,
-            focusedErrorBorder: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
+                        icon: const Icon(Icons.add_a_photo_outlined),
+                        label: Text(_imageFileName != null ? 'Cambiar imagen: $_imageFileName' : 'Seleccionar fotografía desde tu dispositivo'),
+                        onPressed: _isUploadingImage ? null : _pickAndUploadImage,
+                      ),
+                      const SizedBox(height: 12),
+
+                      if (_isUploadingImage) ...[
+                        const LinearProgressIndicator(),
+                        const SizedBox(height: 6),
+                        const Text('Subiendo fotografía a Supabase Storage...', style: TextStyle(fontSize: 12, color: kGreyText)),
+                        const SizedBox(height: 12),
+                      ],
+
+                      if (_imageBytes != null && !_isUploadingImage) ...[
+                        Container(
+                          height: 180,
+                          width: double.infinity,
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: kCardBorder),
+                          ),
+                          clipBehavior: Clip.antiAlias,
+                          child: Image.memory(
+                            _imageBytes!,
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+
+                      const Text(
+                        'SELECCIONA LA UBICACIÓN EN EL MAPA',
+                        style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: kGreyText, letterSpacing: 0.5),
+                      ),
+                      const SizedBox(height: 8),
+
+                      Container(
+                        height: 200,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: kCardBorder),
+                        ),
+                        clipBehavior: Clip.antiAlias,
+                        child: FlutterMap(
+                          options: MapOptions(
+                            initialCenter: _selectedLocation,
+                            initialZoom: 13.0,
+                            onTap: (tapPos, latLng) {
+                              setState(() => _selectedLocation = latLng);
+                            },
+                          ),
+                          children: [
+                            TileLayer(
+                              urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                              userAgentPackageName: 'com.example.frontend_flutter',
+                            ),
+                            MarkerLayer(
+                              markers: [
+                                Marker(
+                                  point: _selectedLocation,
+                                  width: 40,
+                                  height: 40,
+                                  child: const Icon(Icons.location_on, size: 40, color: Colors.red),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: kPrimaryBlue,
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          ),
+                          onPressed: (_isLoading || _isUploadingImage) ? null : _submitForm,
+                          child: _isLoading
+                              ? const CircularProgressIndicator(color: Colors.white)
+                              : const Text('ENVIAR DENUNCIA', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
           ),
         ),
       ),
