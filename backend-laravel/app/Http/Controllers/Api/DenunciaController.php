@@ -101,6 +101,34 @@ class DenunciaController extends Controller
         ]);
     }
 
+    /**
+     * Devuelve todas las denuncias necesarias para el mapa, sin paginacion.
+     * La respuesta conserva las relaciones utilizadas por el detalle de Flutter.
+     */
+    public function mapa(Request $request)
+    {
+        $filters = $request->validate([
+            'estado' => 'nullable|in:pendiente,en_proceso,resuelta',
+            'categoria_id' => 'nullable|integer|exists:categorias,id',
+        ]);
+
+        $query = Denuncia::with(['categoria', 'user'])
+            ->orderByDesc('created_at');
+
+        if (! empty($filters['estado'])) {
+            $query->where('estado', $filters['estado']);
+        }
+
+        if (! empty($filters['categoria_id'])) {
+            $query->where('categoria_id', $filters['categoria_id']);
+        }
+
+        return response()->json([
+            'success' => true,
+            'data' => $query->get(),
+        ]);
+    }
+
     public function estadisticas()
     {
         return response()->json([
