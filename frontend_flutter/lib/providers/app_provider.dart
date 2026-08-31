@@ -1,12 +1,15 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/complaint.dart';
 import '../models/user.dart';
 import '../models/categoria.dart';
+import '../utils/status_utils.dart';
 
 class AppProvider extends ChangeNotifier {
   List<Complaint> _complaints = [];
+  List<Complaint> _mapComplaints = [];
   List<Complaint> _myComplaints = [];
   List<User> _users = [];
   List<Categoria> _categorias = [];
@@ -18,6 +21,9 @@ class AppProvider extends ChangeNotifier {
 
   bool _isLoadingMine = false;
   String? _errorMine;
+
+  bool _isLoadingMap = false;
+  String? _errorMap;
 
   bool _isLoadingCategorias = false;
   String? _errorCategorias;
@@ -32,6 +38,7 @@ class AppProvider extends ChangeNotifier {
   };
 
   List<Complaint> get complaints => _complaints;
+  List<Complaint> get mapComplaints => _mapComplaints;
   List<Complaint> get myComplaints => _myComplaints;
   List<User> get users => _users;
   List<Categoria> get categorias => _categorias;
@@ -42,6 +49,8 @@ class AppProvider extends ChangeNotifier {
   String? get error => _error;
   bool get isLoadingMine => _isLoadingMine;
   String? get errorMine => _errorMine;
+  bool get isLoadingMap => _isLoadingMap;
+  String? get errorMap => _errorMap;
   bool get isLoadingCategorias => _isLoadingCategorias;
   String? get errorCategorias => _errorCategorias;
   bool get isSubmitting => _isSubmitting;
@@ -52,11 +61,31 @@ class AppProvider extends ChangeNotifier {
   static const String baseUrl = 'http://127.0.0.1:8000/api';
 
   AppProvider() {
-    fetchComplaints();
+    tryAutoLogin();
   }
 
-  // Extrae la lista real sin importar cuántos niveles de envoltura tenga
-  // la respuesta (paginador de Laravel, wrapper {success, data}, o lista plana).
+  Future<void> tryAutoLogin() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (!prefs.containsKey('jwt_token') || !prefs.containsKey('user_data')) {
+        await fetchComplaints();
+        return;
+      }
+
+      _token = prefs.getString('jwt_token');
+      final userJson = prefs.getString('user_data');
+      if (userJson != null) {
+        _currentUser = User.fromApi(json.decode(userJson));
+      }
+      notifyListeners();
+
+      await fetchComplaints();
+      await fetchMyComplaints();
+    } catch (_) {
+      await fetchComplaints();
+    }
+  }
+
   List _extractList(dynamic decoded) {
     if (decoded is List) return decoded;
 
@@ -75,6 +104,8 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<void> fetchComplaints() async {
+    if (_token == null) return;
+
     _isLoading = true;
     _error = null;
     notifyListeners();
@@ -139,6 +170,41 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+  /// Carga todas las denuncias georreferenciadas sin la paginacion de la lista.
+  Future<void> fetchMapComplaints() async {
+    if (_token == null) return;
+
+    _isLoadingMap = true;
+    _errorMap = null;
+    notifyListeners();
+
+    try {
+      final response = await http.get(
+        Uri.parse('$baseUrl/denuncias/mapa'),
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': 'Bearer $_token',
+        },
+      );
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final rawList = _extractList(data);
+        _mapComplaints =
+            rawList.map((item) => Complaint.fromJson(item)).toList();
+      } else if (response.statusCode == 401) {
+        _errorMap = 'Tu sesion expiro, vuelve a iniciar sesion.';
+      } else {
+        _errorMap = 'No se pudo cargar el mapa (${response.statusCode}).';
+      }
+    } catch (e) {
+      _errorMap = 'Error de conexion al cargar el mapa: $e';
+    } finally {
+      _isLoadingMap = false;
+      notifyListeners();
+    }
+  }
+
   Future<void> fetchComplaintSummary() async {
     if (_token == null) return;
 
@@ -174,8 +240,7 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  /// Obtiene una denuncia con su historial de cambios de estado.
-  Future<Complaint?> fetchComplaintDetail(String id) async {
+  Future<Complaint?> fetchComplaintDetail(dynamic id) async {
     try {
       final response = await http.get(
         Uri.parse('$baseUrl/denuncias/$id'),
@@ -194,9 +259,8 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  // Carga las categorías reales del backend para el formulario de creación
   Future<void> fetchCategorias() async {
-    if (_categorias.isNotEmpty) return; // ya cargadas, no repetir
+    if (_categorias.isNotEmpty) return;
 
     _isLoadingCategorias = true;
     _errorCategorias = null;
@@ -227,11 +291,19 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  void setSession(User user, String token) {
+  Future<void> setSession(User user, String token, {Map<String, dynamic>? rawUserJson}) async {
     _currentUser = user;
     _token = token;
     notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('jwt_token', token);
+    if (rawUserJson != null) {
+      await prefs.setString('user_data', json.encode(rawUserJson));
+    }
+
     fetchComplaints();
+    fetchMapComplaints();
     fetchMyComplaints();
   }
 
@@ -240,21 +312,32 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void logout() {
+  Future<void> logout() async {
     _currentUser = null;
     _token = null;
+    _complaints = [];
     _myComplaints = [];
+    _mapComplaints = [];
+    _users = [];
     _categorias = [];
+    _complaintSummary = const {
+      'total': 0,
+      'pendientes': 0,
+      'aprobadas': 0,
+    };
     notifyListeners();
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('jwt_token');
+    await prefs.remove('user_data');
   }
 
   void addComplaint(Complaint complaint) {
     _complaints.insert(0, complaint);
+    _mapComplaints.insert(0, complaint);
     notifyListeners();
   }
 
-  // Crea una denuncia real en el backend.
-  // Devuelve null si fue exitoso, o un mensaje de error si algo falló.
   Future<String?> createComplaint({
     required String titulo,
     required String descripcion,
@@ -262,6 +345,7 @@ class AppProvider extends ChangeNotifier {
     required String direccionReferencial,
     required double latitud,
     required double longitud,
+    String? fotoUrl,
   }) async {
     if (_token == null) {
       return 'Debes iniciar sesión para crear una denuncia.';
@@ -285,6 +369,7 @@ class AppProvider extends ChangeNotifier {
           'direccion_referencial': direccionReferencial,
           'latitud': latitud,
           'longitud': longitud,
+          if (fotoUrl != null && fotoUrl.isNotEmpty) 'foto_url': fotoUrl,
         }),
       );
 
@@ -296,17 +381,17 @@ class AppProvider extends ChangeNotifier {
         if (nuevaData is Map<String, dynamic>) {
           final nueva = Complaint.fromJson(nuevaData);
           _complaints.insert(0, nueva);
+          _mapComplaints.insert(0, nueva);
           _myComplaints.insert(0, nueva);
         } else {
-          // Si el backend no devuelve la denuncia creada, recargamos de la API
           await fetchComplaints();
+          await fetchMapComplaints();
           await fetchMyComplaints();
         }
 
         notifyListeners();
-        return null; // éxito
+        return null;
       } else if (response.statusCode == 422) {
-        // Errores de validación de Laravel
         final decoded = json.decode(response.body);
         final errors = decoded['errors'];
         if (errors is Map) {
@@ -328,7 +413,7 @@ class AppProvider extends ChangeNotifier {
   }
 
   Future<String?> updateComplaintStatus(
-    String id,
+    dynamic id,
     String newStatus, {
     String? comment,
   }) async {
@@ -344,7 +429,10 @@ class AppProvider extends ChangeNotifier {
           'Accept': 'application/json',
           'Authorization': 'Bearer $_token',
         },
-        body: json.encode({'estado': newStatus, 'comentario': comment}),
+        body: json.encode({
+          'estado': normalizeStatus(newStatus),
+          'comentario': comment,
+        }),
       );
       final decoded = json.decode(response.body) as Map<String, dynamic>;
       if (response.statusCode != 200) {
@@ -353,6 +441,7 @@ class AppProvider extends ChangeNotifier {
       }
 
       await fetchComplaints();
+      await fetchMapComplaints();
       await fetchMyComplaints();
       return null;
     } catch (e) {

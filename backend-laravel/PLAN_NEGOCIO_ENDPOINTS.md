@@ -65,3 +65,17 @@ Lo que faltaba era conectar ese dominio con la API real.
 - añadir recursos de serialización del API,
 - revisar CORS para Flutter Web,
 - añadir pruebas automatizadas para los endpoints.
+
+## Actualización: mapas y reportes municipales
+
+Se incorporaron los siguientes endpoints autenticados:
+
+- `GET /api/denuncias/mapa`: devuelve todas las denuncias georreferenciadas sin
+  limitar el mapa a la primera página del listado.
+- `GET /api/reportes/denuncias`: devuelve resumen, distribución por categoría y
+  las denuncias filtradas.
+- `GET /api/reportes/denuncias/csv`: descarga el conjunto filtrado completo en
+  CSV UTF-8 compatible con Excel.
+
+Los endpoints de reportes están protegidos con `rol:municipal`. También se
+eliminó la posibilidad de crear una cuenta municipal desde el registro público.

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/status_utils.dart';
 
 class StatusBadge extends StatelessWidget {
   final String status;
@@ -6,61 +7,29 @@ class StatusBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Color color;
-    String label;
-
-    switch (status) {
-      // Valores reales que manda el backend (enum de la tabla denuncias)
-      case 'pendiente':
-        color = Colors.orange;
-        label = 'Pendiente';
-        break;
-      case 'en_proceso':
-        color = Colors.blue;
-        label = 'En proceso';
-        break;
-      case 'resuelta':
-        color = Colors.green;
-        label = 'Resuelta';
-        break;
-
-      // Valores legacy usados por datos mock, se mantienen por compatibilidad
-      case 'Atendido':
-        color = Colors.green;
-        label = status;
-        break;
-      case 'En proceso':
-        color = Colors.blue;
-        label = status;
-        break;
-      case 'En revisión':
-        color = Colors.orange;
-        label = status;
-        break;
-      case 'Rechazado':
-        color = Colors.red;
-        label = status;
-        break;
-
-      default:
-        color = Colors.grey;
-        label = status;
-    }
+    final info = getStatusInfo(status);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color),
+        color: info.backgroundColor,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: info.textColor.withValues(alpha: 0.2)),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: color,
-          fontSize: 12,
-          fontWeight: FontWeight.bold,
-        ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(info.icon, size: 12, color: info.textColor),
+          const SizedBox(width: 4),
+          Text(
+            info.label,
+            style: TextStyle(
+              color: info.textColor,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
       ),
     );
   }

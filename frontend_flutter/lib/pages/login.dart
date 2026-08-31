@@ -46,10 +46,10 @@ class _LoginPageState extends State<LoginPage> {
 
       if (!mounted) return;
 
-      context.read<AppProvider>().setSession(user, token);
+      context.read<AppProvider>().setSession(user, token, rawUserJson: result['user'] as Map<String, dynamic>);
       Navigator.pushReplacementNamed(
         context,
-        user.role == 'admin' ? '/admin' : '/citizen',
+        user.role == 'admin' || user.role == 'municipal' ? '/admin' : '/citizen',
       );
     } catch (e) {
       ScaffoldMessenger.of(
