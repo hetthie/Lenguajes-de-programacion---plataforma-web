@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:frontend_flutter/models/categoria.dart';
+import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import '../../components/location_picker.dart';
 import '../../providers/app_provider.dart';
 
 const Color kScreenBg = Color(0xFFF8FAFC);
@@ -26,6 +28,7 @@ class _CreatePageState extends State<CreatePage> {
   final _descController = TextEditingController();
   final _addressController = TextEditingController();
   int? _categoriaId;
+  LatLng? _selectedLocation;
 
   @override
   void initState() {
@@ -51,6 +54,14 @@ class _CreatePageState extends State<CreatePage> {
       );
       return;
     }
+    if (_selectedLocation == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Selecciona la ubicación exacta en el mapa.'),
+        ),
+      );
+      return;
+    }
 
     final provider = context.read<AppProvider>();
 
@@ -59,8 +70,8 @@ class _CreatePageState extends State<CreatePage> {
       descripcion: _descController.text.trim(),
       categoriaId: _categoriaId!,
       direccionReferencial: _addressController.text.trim(),
-      latitud: -2.1894,
-      longitud: -79.8891,
+      latitud: _selectedLocation!.latitude,
+      longitud: _selectedLocation!.longitude,
     );
 
     if (!mounted) return;
@@ -101,6 +112,10 @@ class _CreatePageState extends State<CreatePage> {
                       ubicacionController: _addressController,
                       descripcionController: _descController,
                       categoriaId: _categoriaId,
+                      selectedLocation: _selectedLocation,
+                      onLocationSelected:
+                          (location) =>
+                              setState(() => _selectedLocation = location),
                       onCategoriaChanged:
                           (val) => setState(() => _categoriaId = val),
                       categorias: provider.categorias,
@@ -149,6 +164,8 @@ class _FormCard extends StatelessWidget {
   final TextEditingController ubicacionController;
   final TextEditingController descripcionController;
   final int? categoriaId;
+  final LatLng? selectedLocation;
+  final ValueChanged<LatLng> onLocationSelected;
   final Function(int?) onCategoriaChanged;
   final List<Categoria> categorias;
   final bool isLoadingCategorias;
@@ -160,6 +177,8 @@ class _FormCard extends StatelessWidget {
     required this.ubicacionController,
     required this.descripcionController,
     required this.categoriaId,
+    required this.selectedLocation,
+    required this.onLocationSelected,
     required this.onCategoriaChanged,
     required this.categorias,
     required this.isLoadingCategorias,
@@ -207,6 +226,12 @@ class _FormCard extends StatelessWidget {
             controller: ubicacionController,
             hintText: 'Ej. Frente a la parada de buses del sector norte',
             validatorText: 'Ingresa una dirección',
+          ),
+          const SizedBox(height: 20),
+
+          LocationPicker(
+            selectedLocation: selectedLocation,
+            onLocationSelected: onLocationSelected,
           ),
           const SizedBox(height: 20),
 

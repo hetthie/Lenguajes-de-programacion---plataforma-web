@@ -68,6 +68,13 @@ class Complaint {
     required this.history,
   });
 
+  bool get hasValidLocation {
+    final validLatitude = latitude >= -90 && latitude <= 90;
+    final validLongitude = longitude >= -180 && longitude <= 180;
+    final isMissingPoint = latitude == 0 && longitude == 0;
+    return validLatitude && validLongitude && !isMissingPoint;
+  }
+
   factory Complaint.fromJson(Map<String, dynamic> json) {
     final rawHistory = json['historial_estados'] ?? json['historial'];
     return Complaint(

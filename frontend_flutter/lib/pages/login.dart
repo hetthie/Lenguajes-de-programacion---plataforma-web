@@ -49,7 +49,7 @@ class _LoginPageState extends State<LoginPage> {
       context.read<AppProvider>().setSession(user, token);
       Navigator.pushReplacementNamed(
         context,
-        user.role == 'admin' ? '/admin' : '/citizen',
+        user.isMunicipal ? '/admin' : '/citizen',
       );
     } catch (e) {
       ScaffoldMessenger.of(
