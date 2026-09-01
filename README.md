@@ -6,13 +6,7 @@ El proyecto conecta a la ciudadanía con el personal municipal mediante una apli
 
 ---
 
-## 📸 Vista Previa del Proyecto
 
-| Módulo Ciudadano | Panel de Administración Municipal |
-| :---: | :---: |
-| *Feed de denuncias, mapa de calor e interfaz de reportes* | *Filtros de estado, gestión de casos e inspección geográfica* |
-
----
 
 ## 🛠️ Stack Tecnológico
 
